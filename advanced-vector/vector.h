@@ -147,13 +147,8 @@ public:
 
     Vector& operator=(Vector&& rhs) noexcept {
         if (this != &rhs) {
-            // Выполняем перемещение данных
-            RawMemory<T> arr_ptr;
-            data_.Swap(arr_ptr);
-
-            data_ = std::move(rhs.data_);
-            size_ = std::exchange(rhs.size_, 0);
-            return *this;
+            data_.Swap(rhs.data_);
+            std::swap(size_, rhs.size_);
         }
         return *this;
     }
@@ -255,7 +250,8 @@ public:
                 std::destroy_n(data_.GetAddress(), size_);
                 data_.Swap(new_data);
             } catch (...) {
-                std::destroy_n(new_data.GetAddress(), size_);
+                std::destroy(new_data.GetAddress(), new_data.GetAddress() + size_);
+                throw; // Пробрасываем исключение дальше
             }
         } else {
             new (data_ + size_) T(std::forward<Args>(args)...);
@@ -289,14 +285,19 @@ public:
                         std::uninitialized_copy_n(data_.GetAddress(),
                                                   dist,
                                                   new_data.GetAddress());
-                        std::uninitialized_copy_n(data_.GetAddress() + dist,
-                                                  size_ - dist,
-                                                  new_data.GetAddress() + dist + 1);
+                        try {
+                            std::uninitialized_copy_n(data_.GetAddress() + dist,
+                                                      size_ - dist,
+                                                      new_data.GetAddress() + dist + 1);
+                        } catch (...) {
+                            std::destroy_n(new_data.GetAddress(), dist + 1);
+                            throw;
+                        }
                     }
                     std::destroy_n(data_.GetAddress(), size_);
                     data_.Swap(new_data);
                 } catch (...) {
-                    std::destroy_n(new_data.GetAddress(), dist + 1);
+                    std::destroy_n(new_data.GetAddress() + dist + 1, size_ - dist);
                     throw;
                 }
             } else {
@@ -316,7 +317,7 @@ public:
     }
 
     iterator Erase(const_iterator pos) /*noexcept(std::is_nothrow_move_assignable_v<T>)*/ {
-        assert(pos >= begin() && pos <= end());
+        assert(pos >= begin() && pos < end());
         const size_t dist = pos - begin();
 
         std::move(begin() + dist + 1, end(), begin() + dist);
