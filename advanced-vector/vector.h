@@ -294,10 +294,10 @@ public:
                             throw;
                         }
                     }
-                    std::destroy_n(new_data.GetAddress() + dist, 1);
+                    std::destroy_n(data_.GetAddress(), size_);
                     data_.Swap(new_data);
                 } catch (...) {
-                    std::destroy_n(new_data.GetAddress() + dist + 1, size_ - dist);
+                    std::destroy_n(new_data.GetAddress() + dist, 1);
                     throw;
                 }
             } else {
