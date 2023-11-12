@@ -250,7 +250,7 @@ public:
                 std::destroy_n(data_.GetAddress(), size_);
                 data_.Swap(new_data);
             } catch (...) {
-                std::destroy(new_data.GetAddress(), new_data.GetAddress() + 1);
+                std::destroy_at(new_data.GetAddress() + size_);
                 throw; // Пробрасываем исключение дальше
             }
         } else {
